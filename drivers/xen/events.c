@@ -17,6 +17,8 @@ static evtchn_handle_t event_channels[EVTCHN_2L_NR_CHANNELS];
 /* One bit per port, sets to 1 during binding */
 static uint64_t evtchn_states[EVTCHN_2L_NR_CHANNELS / (8 * sizeof(uint64_t))];
 
+extern struct shared_info *HYPERVISOR_shared_info;
+
 static void empty_callback(void *data) {
 	;
 }
@@ -70,20 +72,91 @@ int unbind_event_channel(evtchn_port_t port) {
 
 int mask_event_channel(evtchn_port_t port) {
 
+	return 0;
 }
 
 int unmask_event_channel(evtchn_port_t port) {
+	return 0;
+}
 
+static inline xen_ulong_t get_pending_events(xen_ulong_t pos) {
+	shared_info_t *s = HYPERVISOR_shared_info;
+	return (s->evtchn_pending[pos] & ~(s->evtchn_mask[pos]));
+}
+
+static void clear_event_channel(evtchn_port_t port) {
+	shared_info_t *s = HYPERVISOR_shared_info;
+
+	/* calculate evtchn_pending element and bit in element */
+	uint32_t pos = port / sizeof(xen_ulong_t);
+	uint32_t bit = port % (sizeof(xen_ulong_t) * 8);
+
+	printk("port = %u, pos = %u, bit = %u\n", port, pos, bit);
+	/* TODO: fix this, make same for mask/unmask */
+	//sys_clear_bit(s->evtchn_pending[pos], bit);
+}
+
+static void process_event(evtchn_port_t port) {
+	evtchn_handle_t channel = event_channels[port];
+
+	clear_event_channel(port);
+
+	channel.cb(channel.priv);
 }
 
 static void events_isr(void *data) {
+	ARG_UNUSED(data);
 
+	/* Needed for 2-level unwrapping */
+	xen_ulong_t pos_selector;   /* bits are positions in pending array */
+	xen_ulong_t events_pending; /* events in pos_selector element */
+	uint32_t pos_index, event_index; /* bit indexes */
+
+	evtchn_port_t port; /* absolute event index */
+
+	vcpu_info_t *vcpu = &HYPERVISOR_shared_info->vcpu_info[0];
+
+	/*
+	 * Need to set it to 0 /before/ checking for pending work, thus
+	 * avoiding a set-and-check race (check struct vcpu_info_t)
+	 */
+	vcpu->evtchn_upcall_pending = 0;
+
+	compiler_barrier();
+	/* TODO: make 2 operations atomic */
+	pos_selector = vcpu->evtchn_pending_sel;
+	vcpu->evtchn_pending_sel = 0;
+	compiler_barrier();
+
+	while (pos_selector) {
+		/* Find first position, clear selector and process */
+		pos_index = __builtin_ffsl(pos_selector) - 1;
+		pos_selector &= ~(1 << pos_index);
+
+		/* Find all active evtchn on selected position */
+		while ((events_pending = get_pending_events(pos_index)) != 0) {
+			event_index =  __builtin_ffsl(events_pending) - 1;
+			events_pending &= (1 << event_index);
+
+			port = (pos_index * 8 * sizeof(xen_ulong_t))
+					+ event_index;
+			process_event(port);
+			/* TODO: remove after fixing clear_event_channel */
+			HYPERVISOR_shared_info->evtchn_pending[pos_index] = 0;
+		}
+	}
 }
 
 
 
 int xen_events_init(void) {
 	int i, ret = 0;
+
+	if (!HYPERVISOR_shared_info) {
+		/* shared info was not mapped */
+		printk("%s: shared_info - NULL, can't setup events", __func__);
+		return -EINVAL;
+	}
 
 	/* bind all ports with default callback */
 	for (i = 0; i < EVTCHN_2L_NR_CHANNELS; i++) {
@@ -97,6 +170,6 @@ int xen_events_init(void) {
 
 	irq_enable(DT_IRQ_BY_IDX(DT_INST(0,xen_xen), 0, irq));
 
-	printk("%s: irq inited\n", __func__);
+	printk("%s: events inited\n", __func__);
 	return 0;
 }

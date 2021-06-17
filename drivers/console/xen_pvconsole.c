@@ -91,8 +91,8 @@ int xen_console_init(const struct device *dev) {
 	char print[] = "First print the Zephyr PV console!\n";
 	(void)__write_console(print, sizeof(print));
 
-	__printk_hook_install(console_write);
-	__stdout_hook_install(console_write);
+	//__printk_hook_install(console_write);
+	//__stdout_hook_install(console_write);
 
 	printk("%s: console inited, evtchn = %llx\n", __func__, console_evtchn);
 	return 0;

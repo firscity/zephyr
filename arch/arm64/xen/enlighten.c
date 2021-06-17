@@ -5,6 +5,7 @@
  */
 
 #include <arch/arm64/hypercall.h>
+#include <xen/events.h>
 #include <xen/public/xen.h>
 #include <xen/public/hvm/hvm_op.h>
 #include <xen/public/hvm/params.h>
@@ -34,7 +35,7 @@ static uint8_t shared_info_buf[CONFIG_MMU_PAGE_SIZE]
 			__attribute__((aligned (CONFIG_MMU_PAGE_SIZE)));
 
 /* Remains NULL until mapping will be finished by Xen */
-struct shared_info *HYPERVISOR_shared_info = NULL;
+shared_info_t *HYPERVISOR_shared_info = NULL;
 
 static int xen_map_shared_info (const struct shared_info *shared_page) {
 	int ret = 0;
@@ -71,6 +72,8 @@ static int xen_enlighten_init(const struct device *dev) {
 
 	HYPERVISOR_shared_info = info;
 	printk("Xen Enlighten mapped to %p\n", HYPERVISOR_shared_info);
+
+	xen_events_init();
 	return ret;
 }
 
