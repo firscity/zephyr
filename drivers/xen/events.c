@@ -19,9 +19,7 @@ static uint64_t evtchn_states[EVTCHN_2L_NR_CHANNELS / (8 * sizeof(uint64_t))];
 
 extern struct shared_info *HYPERVISOR_shared_info;
 
-static void empty_callback(void *data) {
-	;
-}
+static void empty_callback(void *data) { }
 
 void notify_evtchn(evtchn_port_t port) {
 	struct evtchn_send send;
@@ -39,7 +37,8 @@ void notify_evtchn(evtchn_port_t port) {
 
 int bind_event_channel(evtchn_port_t port, evtchn_cb_t cb, void *data) {
 	if (port >= EVTCHN_2L_NR_CHANNELS) {
-		printk("%s: trying to bind invalid evtchn #%u", __func__, port);
+		printk("%s: trying to bind invalid evtchn #%u",
+				__func__, port);
 		return -EINVAL;
 	}
 
@@ -71,29 +70,46 @@ int unbind_event_channel(evtchn_port_t port) {
 }
 
 int mask_event_channel(evtchn_port_t port) {
+	shared_info_t *s = HYPERVISOR_shared_info;
+
+	if (port >= EVTCHN_2L_NR_CHANNELS) {
+		printk("%s: trying to mask invalid evtchn #%u",
+				__func__, port);
+		return -EINVAL;
+	}
+
+	sys_bitfield_set_bit((mem_addr_t) s->evtchn_mask, port);
 
 	return 0;
 }
 
 int unmask_event_channel(evtchn_port_t port) {
-	return 0;
-}
-
-static inline xen_ulong_t get_pending_events(xen_ulong_t pos) {
 	shared_info_t *s = HYPERVISOR_shared_info;
-	return (s->evtchn_pending[pos] & ~(s->evtchn_mask[pos]));
+
+	if (port >= EVTCHN_2L_NR_CHANNELS) {
+		printk("%s: trying to unmask invalid evtchn #%u",
+				__func__, port);
+		return -EINVAL;
+	}
+
+	sys_bitfield_clear_bit((mem_addr_t) s->evtchn_mask, port);
+
+	return 0;
 }
 
 static void clear_event_channel(evtchn_port_t port) {
 	shared_info_t *s = HYPERVISOR_shared_info;
 
-	/* calculate evtchn_pending element and bit in element */
-	uint32_t pos = port / sizeof(xen_ulong_t);
-	uint32_t bit = port % (sizeof(xen_ulong_t) * 8);
+	//printk("%s: port - %d, evtchn_pending before - %llx\n", __func__, port, s->evtchn_pending[0]);
+	sys_bitfield_clear_bit((mem_addr_t) s->evtchn_pending, port);
+	compiler_barrier();
 
-	printk("port = %u, pos = %u, bit = %u\n", port, pos, bit);
-	/* TODO: fix this, make same for mask/unmask */
-	//sys_clear_bit(s->evtchn_pending[pos], bit);
+	//printk("%s: evtchn_pending after - %llx\n", __func__, s->evtchn_pending[0]);
+}
+
+static inline xen_ulong_t get_pending_events(xen_ulong_t pos) {
+	shared_info_t *s = HYPERVISOR_shared_info;
+	return (s->evtchn_pending[pos] & ~(s->evtchn_mask[pos]));
 }
 
 static void process_event(evtchn_port_t port) {
@@ -109,11 +125,12 @@ static void events_isr(void *data) {
 
 	/* Needed for 2-level unwrapping */
 	xen_ulong_t pos_selector;   /* bits are positions in pending array */
-	xen_ulong_t events_pending; /* events in pos_selector element */
+	xen_ulong_t events_pending; /* bits - events in pos_selector element */
 	uint32_t pos_index, event_index; /* bit indexes */
 
 	evtchn_port_t port; /* absolute event index */
 
+	/* TODO: SMP? */
 	vcpu_info_t *vcpu = &HYPERVISOR_shared_info->vcpu_info[0];
 
 	/*
@@ -123,13 +140,12 @@ static void events_isr(void *data) {
 	vcpu->evtchn_upcall_pending = 0;
 
 	compiler_barrier();
-	/* TODO: make 2 operations atomic */
-	pos_selector = vcpu->evtchn_pending_sel;
-	vcpu->evtchn_pending_sel = 0;
-	compiler_barrier();
 
+	/* Can not use system atomic_t/atomic_set() due to 32-bit casting */
+	pos_selector = __atomic_exchange_n(&vcpu->evtchn_pending_sel,
+					0, __ATOMIC_SEQ_CST);
 	while (pos_selector) {
-		/* Find first position, clear selector and process */
+		/* Find first position, clear it in selector and process */
 		pos_index = __builtin_ffsl(pos_selector) - 1;
 		pos_selector &= ~(1 << pos_index);
 
@@ -141,8 +157,6 @@ static void events_isr(void *data) {
 			port = (pos_index * 8 * sizeof(xen_ulong_t))
 					+ event_index;
 			process_event(port);
-			/* TODO: remove after fixing clear_event_channel */
-			HYPERVISOR_shared_info->evtchn_pending[pos_index] = 0;
 		}
 	}
 }
@@ -171,5 +185,5 @@ int xen_events_init(void) {
 	irq_enable(DT_IRQ_BY_IDX(DT_INST(0,xen_xen), 0, irq));
 
 	printk("%s: events inited\n", __func__);
-	return 0;
+	return ret;
 }
