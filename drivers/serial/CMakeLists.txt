@@ -46,3 +46,12 @@ if(CONFIG_UART_NATIVE_POSIX)
   zephyr_library_compile_definitions(NO_POSIX_CHEATS)
   zephyr_library_sources(uart_native_posix.c)
 endif()
+
+if(CONFIG_BOARD_XENVM)
+  zephyr_library_sources(uart_hvc_xen.c)
+
+  # Needed to map memory page with console ring buffer
+  zephyr_library_include_directories(${ZEPHYR_BASE}/kernel/include)
+  zephyr_library_include_directories(${ZEPHYR_BASE}/arch/${ARCH}/include)
+endif()
+

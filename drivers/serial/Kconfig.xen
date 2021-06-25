@@ -1,0 +1,13 @@
+# Xen hypervisor console via UART setup
+#
+# Copyright (c) 2021 EPAM Systems
+# SPDX-License-Identifier: Apache-2.0
+#
+
+config UART_XEN_HVC
+	bool "Xen hypervisor console UART Driver"
+	select SERIAL_HAS_DRIVER
+	select SERIAL_SUPPORT_INTERRUPT
+	depends on BOARD_XENVM
+	help
+	  Enable Xen hypervisor console driver.

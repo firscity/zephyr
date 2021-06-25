@@ -6,6 +6,9 @@
 #ifndef __XEN_HVM_H__
 #define __XEN_HVM_H__
 
+#include <xen/public/hvm/hvm_op.h>
+#include <xen/public/hvm/params.h>
+
 #include <kernel.h>
 
 int hvm_set_parameter(int idx, uint64_t value);

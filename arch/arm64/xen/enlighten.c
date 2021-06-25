@@ -7,21 +7,12 @@
 #include <arch/arm64/hypercall.h>
 #include <xen/events.h>
 #include <xen/public/xen.h>
-#include <xen/public/hvm/hvm_op.h>
-#include <xen/public/hvm/params.h>
 #include <xen/public/memory.h>
-#include <xen/public/io/console.h>
-#include <xen/public/io/xs_wire.h>
-#include <xen/public/io/xenbus.h>
 
-#include <string.h>
-#include <stdio.h>
 #include <kernel.h>
 #include <init.h>
-#include <errno.h>
 #include <sys/printk.h>
 #include <device.h>
-#include <kernel_arch_interface.h>
 #include <kernel/thread.h>
 
 /*
@@ -56,10 +47,6 @@ static int xen_map_shared_info (const struct shared_info *shared_page) {
 static int xen_enlighten_init(const struct device *dev) {
 	ARG_UNUSED(dev);
 	int ret = 0;
-
-//#ifdef CONFIG_...
-	xen_console_init(NULL);
-//#endif /* CONFIG_... */
 
 	struct shared_info *info = (struct shared_info *) shared_info_buf;
 
