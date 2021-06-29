@@ -97,6 +97,7 @@ static void xen_hvc_poll_out(const struct device *dev,
 	(void) __write_to_ring(&c, sizeof(c));
 }
 
+#ifdef CONFIG_UART_INTERRUPT_DRIVEN
 static int xen_hvc_fifo_fill(const struct device *dev, const uint8_t *tx_data,
 			 int len) {
 	int ret = 0, sent = 0;
@@ -109,7 +110,7 @@ static int xen_hvc_fifo_fill(const struct device *dev, const uint8_t *tx_data,
 		len -= sent;
 
 		if (len) {
-			/* Need be able to read it from another domain */
+			/* Need to be able to read it from another domain */
 			HYPERVISOR_sched_op(SCHEDOP_yield, NULL);
 		}
 	}
@@ -119,7 +120,7 @@ static int xen_hvc_fifo_fill(const struct device *dev, const uint8_t *tx_data,
 
 static int xen_hvc_fifo_read(const struct device *dev, uint8_t *rx_data,
 			 const int size) {
-	return 0;
+	return __read_from_ring(rx_data, size);
 }
 
 static void xen_hvc_irq_tx_enable(const struct device *dev) {
@@ -171,6 +172,7 @@ static void xen_hvc_irq_callback_set(const struct device *dev,
 		 void *user_data) {
 
 }
+#endif
 
 static const struct uart_driver_api xen_hvc_api = {
 	.poll_in = xen_hvc_poll_in,
@@ -199,6 +201,7 @@ int xen_console_init(const struct device *dev) {
 	ARG_UNUSED(dev);
 	int ret = 0;
 	uint64_t console_pfn = 0;
+	char buf[100];
 
 
 	ret = hvm_get_parameter(HVM_PARAM_CONSOLE_EVTCHN, &console_evtchn);
@@ -222,20 +225,15 @@ int xen_console_init(const struct device *dev) {
 	arch_mem_map(console_intf, (uintptr_t) console_intf,
 			CONFIG_MMU_PAGE_SIZE, K_MEM_PERM_RW | K_MEM_CACHE_WB);
 
-	char print[100];
-	snprintf(print, sizeof(print), "First print the Zephyr PV console!\n");
-	(void)__write_to_ring(print, strlen(print));
+	snprintf(buf, sizeof(buf), "First print the Zephyr PV console!\n");
+	(void)__write_to_ring(buf, strlen(buf));
 
-	snprintf(print, sizeof(print), "Console evtchn = %lld\n", console_evtchn);
-	(void)__write_to_ring(print, strlen(print));
-//	__printk_hook_install(console_write);
-//	__stdout_hook_install(console_write);
+	snprintf(buf, sizeof(buf), "Console evtchn = %lld\n", console_evtchn);
+	(void)__write_to_ring(buf, strlen(buf));
 
-
-	printk("%s: console inited, evtchn = %llx\n", __func__, console_evtchn);
 	return 0;
 }
 
 
 DEVICE_DEFINE(uart_hvc_xen, "XEN_HVC", xen_console_init, NULL, NULL, NULL,
-		PRE_KERNEL_1, CONFIG_UART_CONSOLE_INIT_PRIORITY, &xen_hvc_api);
+		PRE_KERNEL_1, CONFIG_KERNEL_INIT_PRIORITY_DEVICE, &xen_hvc_api);
