@@ -19,16 +19,9 @@ SECTION_FUNC(TEXT, HYPERVISOR_##hypercall)	\
 
 _ASM_FILE_PROLOGUE
 
-HYPERCALL(xen_version);
 HYPERCALL(console_io);
 HYPERCALL(grant_table_op);
 HYPERCALL(sched_op);
 HYPERCALL(event_channel_op);
 HYPERCALL(hvm_op);
 HYPERCALL(memory_op);
-HYPERCALL(physdev_op);
-HYPERCALL(vcpu_op);
-HYPERCALL(tmem_op);
-HYPERCALL(multicall);
-HYPERCALL(vm_assist);
-HYPERCALL(dm_op);

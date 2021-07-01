@@ -6,6 +6,7 @@
 
 #include <arch/arm64/hypercall.h>
 #include <xen/events.h>
+#include <xen/generic.h>
 #include <xen/public/xen.h>
 #include <xen/public/memory.h>
 
@@ -22,54 +23,28 @@
  * which will be casted to 'struct shared_info'. It is needed to initialize Xen
  * event channels as soon as possible after start.
  */
-static uint8_t shared_info_buf[CONFIG_MMU_PAGE_SIZE]
-			__attribute__((aligned (CONFIG_MMU_PAGE_SIZE)));
+static uint8_t shared_info_buf[XEN_PAGE_SIZE]
+			__attribute__((aligned(XEN_PAGE_SIZE)));
 
 /* Remains NULL until mapping will be finished by Xen */
 shared_info_t *HYPERVISOR_shared_info = NULL;
 
-
-int xen_consoleio_putc(int c)
-{
-	register unsigned int r0 __asm__("r0") = CONSOLEIO_write;
-	register size_t r1 __asm__("r1") = sizeof(char);
-	register char * r2 __asm__("r2") = (char *) &c;
-	register unsigned int r16 __asm__("r16") = __HYPERVISOR_console_io;
-	register int ret __asm__("r0");
-
-	__asm__ volatile ("hvc #0xEA1" : "=r" (ret) : "0" (r0), "r" (r1),
-			"r" (r2), "r" (r16) : "memory");
-
-	if (ret == 0)
-		return sizeof(char);
-	else
-		return 0;
-}
-
-static int xen_map_shared_info (const struct shared_info *shared_page) {
-	int ret = 0;
+static int xen_map_shared_info (const shared_info_t *shared_page) {
 	struct xen_add_to_physmap xatp;
 
 	xatp.domid = DOMID_SELF;
 	xatp.idx = 0;
 	xatp.space = XENMAPSPACE_shared_info;
-	xatp.gpfn = ( ((xen_pfn_t) shared_page) >> 12);
+	xatp.gpfn = (((xen_pfn_t) shared_page) >> XEN_PAGE_SHIFT);
 
-	ret = HYPERVISOR_memory_op(XENMEM_add_to_physmap, &xatp);
-
-	printk("%s: enlighten mapping result = %d\n", __func__, ret);
-
-	return ret;
+	return HYPERVISOR_memory_op(XENMEM_add_to_physmap, &xatp);
 }
 
 static int xen_enlighten_init(const struct device *dev) {
 	ARG_UNUSED(dev);
 	int ret = 0;
+	shared_info_t *info = (shared_info_t *) shared_info_buf;
 
-	struct shared_info *info = (struct shared_info *) shared_info_buf;
-
-	__stdout_hook_install(xen_consoleio_putc);
-	__printk_hook_install(xen_consoleio_putc);
 	ret = xen_map_shared_info(info);
 	if (ret) {
 		printk("%s: failed to map for Xen shared page, ret = %d\n",
@@ -77,11 +52,17 @@ static int xen_enlighten_init(const struct device *dev) {
 		return ret;
 	}
 
+	/* Set value for globally visible pointer */
 	HYPERVISOR_shared_info = info;
-	printk("Xen Enlighten mapped to %p\n", HYPERVISOR_shared_info);
 
-	xen_events_init();
-	return ret;
+	ret = xen_events_init();
+	if (ret) {
+		printk("%s: failed init Xen event channels, ret = %d\n",
+			__func__, ret);
+		return ret;
+	}
+
+	return 0;
 }
 
 SYS_INIT(xen_enlighten_init, PRE_KERNEL_1, CONFIG_KERNEL_INIT_PRIORITY_DEVICE);

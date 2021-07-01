@@ -10,8 +10,6 @@
 #include <xen/generic.h>
 #include <xen/hvm.h>
 #include <xen/public/io/console.h>
-#include <xen/public/io/ring.h>
-#include <xen/public/io/xs_wire.h>
 #include <xen/public/sched.h>
 #include <xen/public/xen.h>
 
@@ -23,67 +21,71 @@
 #include <string.h>
 #include <sys/printk.h>
 
-#include <drivers/uart.h>
+/* k_malloc() is not available on PRE_KERNEL_1 - define HVC data statically */
+static struct hvc_xen_data hvc_data = {0};
 
+#ifdef CONFIG_UART_INTERRUPT_DRIVEN
+static void hvc_uart_evtchn_cb(void *priv);
+#endif /* CONFIG_UART_INTERRUPT_DRIVEN */
 
-
-static struct xencons_interface *console_intf = NULL;
-static uint64_t console_evtchn = 0;
-
-/* TODO: move it to 'struct xen_console' */
-static uart_irq_callback_user_data_t xen_cb = NULL;
-static void *xen_cb_data = NULL;
-
-static void xen_uart_cb (void *data);
-
-static int __read_from_ring(char *data, int len)
+#ifdef CONFIG_XEN_EARLY_CONSOLEIO
+int xen_consoleio_putc(int c)
 {
+	char symbol = (char) c;
+	HYPERVISOR_console_io(CONSOLEIO_write, sizeof(symbol), &symbol);
+
+	return c;
+}
+#endif /* CONFIG_XEN_EARLY_CONSOLEIO */
+
+static int read_from_ring(const struct device *dev, char *str, int len) {
 	int recv = 0;
-	XENCONS_RING_IDX cons = console_intf->in_cons;
-	XENCONS_RING_IDX prod = console_intf->in_prod;
+	struct hvc_xen_data *hvc_data = dev->data;
+	XENCONS_RING_IDX cons = hvc_data->intf->in_cons;
+	XENCONS_RING_IDX prod = hvc_data->intf->in_prod;
 	XENCONS_RING_IDX in_idx = 0;
 
 	compiler_barrier();
-	__ASSERT((prod - cons) > sizeof(console_intf->in),
-			"Invalid input buffer");
+	__ASSERT((prod - cons) > sizeof(hvc_data->intf->in),
+			"Invalid input ring buffer");
 
 	while (cons != prod && recv < len) {
-		in_idx = MASK_XENCONS_IDX(cons, console_intf->in);
-		data[recv] = console_intf->in[in_idx];
+		in_idx = MASK_XENCONS_IDX(cons, hvc_data->intf->in);
+		str[recv] = hvc_data->intf->in[in_idx];
 		recv++;
 		cons++;
 	}
 
 	compiler_barrier();
-	console_intf->in_cons = cons;
+	hvc_data->intf->in_cons = cons;
 
-	notify_evtchn(console_evtchn);
+	notify_evtchn(hvc_data->evtchn);
 	return recv;
 }
 
-static int __write_to_ring(const char *data, int len)
-{
+static int write_to_ring(const struct device *dev, const char *str, int len) {
 	int sent = 0;
-	XENCONS_RING_IDX cons = console_intf->out_cons;
-	XENCONS_RING_IDX prod = console_intf->out_prod;
+	struct hvc_xen_data *hvc_data = dev->data;
+	XENCONS_RING_IDX cons = hvc_data->intf->out_cons;
+	XENCONS_RING_IDX prod = hvc_data->intf->out_prod;
 	XENCONS_RING_IDX out_idx = 0;
 
 	compiler_barrier();
-	__ASSERT((prod - cons) > sizeof(console_intf->out),
-			"Invalid output buffer");
+	__ASSERT((prod - cons) > sizeof(hvc_data->intf->out),
+			"Invalid output ring buffer");
 
-	while ((sent < len) && ((prod - cons) < sizeof(console_intf->out))) {
-		out_idx = MASK_XENCONS_IDX(prod, console_intf->out);
-		console_intf->out[out_idx] = data[sent];
+	while ((sent < len) && ((prod - cons) < sizeof(hvc_data->intf->out))) {
+		out_idx = MASK_XENCONS_IDX(prod, hvc_data->intf->out);
+		hvc_data->intf->out[out_idx] = str[sent];
 		prod++;
 		sent++;
 	}
 
 	compiler_barrier();
-	console_intf->out_prod = prod;
+	hvc_data->intf->out_prod = prod;
 
 	if (sent)
-		notify_evtchn(console_evtchn);
+		notify_evtchn(hvc_data->evtchn);
 
 	return sent;
 }
@@ -93,7 +95,7 @@ static int xen_hvc_poll_in(const struct device *dev,
 	int ret = 0;
 	char temp;
 
-	ret = __read_from_ring(&temp, sizeof(temp));
+	ret = read_from_ring(dev, &temp, sizeof(temp));
 	if (!ret)
 		/* Char was not received */
 		return -1;
@@ -105,7 +107,7 @@ static int xen_hvc_poll_in(const struct device *dev,
 static void xen_hvc_poll_out(const struct device *dev,
 			unsigned char c) {
 	/* TODO: definitely this is bad solution - notifying HV every time */
-	(void) __write_to_ring(&c, sizeof(c));
+	(void) write_to_ring(dev, &c, sizeof(c));
 }
 
 #ifdef CONFIG_UART_INTERRUPT_DRIVEN
@@ -114,7 +116,7 @@ static int xen_hvc_fifo_fill(const struct device *dev, const uint8_t *tx_data,
 	int ret = 0, sent = 0;
 
 	while (len) {
-		sent = __write_to_ring(tx_data, len);
+		sent = write_to_ring(dev, tx_data, len);
 
 		ret += sent;
 		tx_data += sent;
@@ -131,15 +133,16 @@ static int xen_hvc_fifo_fill(const struct device *dev, const uint8_t *tx_data,
 
 static int xen_hvc_fifo_read(const struct device *dev, uint8_t *rx_data,
 			 const int size) {
-	return __read_from_ring(rx_data, size);
+	return read_from_ring(dev, rx_data, size);
 }
 
 static void xen_hvc_irq_tx_enable(const struct device *dev) {
 	/*
 	 * Need to explicitly call UART callback on TX enabling to
-	 * process available buffered TX actions.
+	 * process available buffered TX actions, because no HV events
+	 * will be generated on tx_enable.
 	 */
-	xen_uart_cb(dev);
+	hvc_uart_evtchn_cb(dev->data);
 }
 
 static void xen_hvc_irq_tx_disable(const struct device *dev) {
@@ -162,8 +165,10 @@ static int xen_hvc_irq_tx_complete(const struct device *dev) {
 	return 1;
 }
 
-static int xen_hvc_irq_rx_ready(const struct device *dev){
-	return (console_intf->in_prod != console_intf->in_cons);
+static int xen_hvc_irq_rx_ready(const struct device *dev) {
+	struct hvc_xen_data *data = dev->data;
+
+	return (data->intf->in_prod != data->intf->in_cons);
 }
 
 static void xen_hvc_irq_err_enable(const struct device *dev) {
@@ -182,17 +187,14 @@ static int xen_hvc_irq_update(const struct device *dev) {
 	return 1;
 }
 
-static void xen_uart_cb (void *data) {
-	if (xen_cb && xen_cb_data)
-		xen_cb(data, xen_cb_data);
-}
-
 static void xen_hvc_irq_callback_set(const struct device *dev,
-		 uart_irq_callback_user_data_t cb,
-		 void *user_data) {
+		 uart_irq_callback_user_data_t cb, void *user_data) {
+	struct hvc_xen_data *data = dev->data;
+
 	printk("setting callback for uart\n");
-	xen_cb = cb;
-	xen_cb_data = user_data;
+
+	data->cb = cb;
+	data->cb_data = user_data;
 }
 #endif /* CONFIG_UART_INTERRUPT_DRIVEN */
 
@@ -217,14 +219,28 @@ static const struct uart_driver_api xen_hvc_api = {
 #endif /* CONFIG_UART_INTERRUPT_DRIVEN */
 };
 
+#ifdef CONFIG_UART_INTERRUPT_DRIVEN
+static void hvc_uart_evtchn_cb(void *priv) {
+	struct hvc_xen_data *data = priv;
+
+	if (data->cb && data->cb_data)
+		data->cb(data->dev, data->cb_data);
+}
+#endif /* CONFIG_UART_INTERRUPT_DRIVEN */
+
 int xen_console_init(const struct device *dev) {
-	//ARG_UNUSED(dev);
 	int ret = 0;
 	uint64_t console_pfn = 0;
-	char buf[100];
+	struct hvc_xen_data *data = dev->data;
 
-	printk("xen_console_init called!\n");
-	ret = hvm_get_parameter(HVM_PARAM_CONSOLE_EVTCHN, &console_evtchn);
+#ifdef CONFIG_XEN_EARLY_CONSOLEIO
+	__stdout_hook_install(xen_consoleio_putc);
+	__printk_hook_install(xen_consoleio_putc);
+#endif /* CONFIG_XEN_EARLY_CONSOLEIO */
+
+	data->dev = dev;
+
+	ret = hvm_get_parameter(HVM_PARAM_CONSOLE_EVTCHN, &data->evtchn);
 	if (ret) {
 		printk("%s: failed to get Xen console evtchn, ret = %d\n",
 				__func__, ret);
@@ -242,25 +258,19 @@ int xen_console_init(const struct device *dev) {
 	 * TODO: Unfortunately, virt_region_get() - is a static function,
 	 * but Zephyr is identity mapped (phys:virt - 1:1), so it should work
 	 */
-	console_intf = (struct xencons_interface *)
+	data->intf = (struct xencons_interface *)
 					(console_pfn << XEN_PAGE_SHIFT);
-	arch_mem_map(console_intf, (uintptr_t) console_intf,
-			CONFIG_MMU_PAGE_SIZE, K_MEM_PERM_RW | K_MEM_CACHE_WB);
+	arch_mem_map(data->intf, (uintptr_t) data->intf, XEN_PAGE_SIZE,
+			K_MEM_PERM_RW | K_MEM_CACHE_WB);
 
 #ifdef CONFIG_UART_INTERRUPT_DRIVEN
-	bind_event_channel(console_evtchn, xen_uart_cb, dev);
+	bind_event_channel(data->evtchn, hvc_uart_evtchn_cb, data);
 #endif /* CONFIG_UART_INTERRUPT_DRIVEN */
-
-	snprintf(buf, sizeof(buf), "First print the Zephyr PV console!\n");
-	(void)__write_to_ring(buf, strlen(buf));
-
-	snprintf(buf, sizeof(buf), "Console evtchn = %lld\n", console_evtchn);
-	(void)__write_to_ring(buf, strlen(buf));
 
 	printk("Xen UART HVC ready!\n");
 	return 0;
 }
 
 
-DEVICE_DEFINE(uart_hvc_xen, "xen_hvc", xen_console_init, NULL, NULL, NULL,
+DEVICE_DEFINE(uart_hvc_xen, "xen_hvc", xen_console_init, NULL, &hvc_data, NULL,
 		PRE_KERNEL_1, CONFIG_XEN_HVC_INIT_PRIORITY, &xen_hvc_api);

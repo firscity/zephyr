@@ -17,7 +17,7 @@ static evtchn_handle_t event_channels[EVTCHN_2L_NR_CHANNELS];
 /* One bit per port, sets to 1 during binding */
 //static uint64_t evtchn_states[EVTCHN_2L_NR_CHANNELS / (8 * sizeof(uint64_t))];
 
-extern struct shared_info *HYPERVISOR_shared_info;
+extern shared_info_t *HYPERVISOR_shared_info;
 
 static void empty_callback(void *data) { }
 
@@ -160,7 +160,7 @@ static void events_isr(void *data) {
 
 
 int xen_events_init(void) {
-	int i, ret = 0;
+	int i;
 
 	if (!HYPERVISOR_shared_info) {
 		/* shared info was not mapped */
@@ -181,5 +181,5 @@ int xen_events_init(void) {
 	irq_enable(DT_IRQ_BY_IDX(DT_INST(0,xen_xen), 0, irq));
 
 	printk("%s: events inited\n", __func__);
-	return ret;
+	return 0;
 }

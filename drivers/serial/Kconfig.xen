@@ -20,3 +20,11 @@ config XEN_HVC_INIT_PRIORITY
 		Set init priority for Xen HVC, should be inited before UART
 		console driver and after Xen Enlighten/events initialization
 		(for interrupt driven UART)
+
+config XEN_EARLY_CONSOLEIO
+	bool "Early printk/stdout through console_io Xen interface"
+	default n
+	help
+		Enable setting console_io symbol hook for stdout and printk. Log
+		output will become available on PRE_KERNEL_1 stage. Requires
+		Xen, compiled with CONFIG_DEBUG flag. 
