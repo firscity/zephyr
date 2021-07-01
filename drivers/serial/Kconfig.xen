@@ -7,6 +7,16 @@
 config UART_XEN_HVC
 	bool "Xen hypervisor console UART Driver"
 	select SERIAL_HAS_DRIVER
+	select SERIAL_SUPPORT_INTERRUPT
 	depends on BOARD_XENVM
+	default y
 	help
 	  Enable Xen hypervisor console driver.
+
+config XEN_HVC_INIT_PRIORITY
+	int "Xen hypervisor console init priority"
+	default 55
+	help
+		Set init priority for Xen HVC, should be inited before UART
+		console driver and after Xen Enlighten/events initialization
+		(for interrupt driven UART)

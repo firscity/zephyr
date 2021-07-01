@@ -28,6 +28,24 @@ static uint8_t shared_info_buf[CONFIG_MMU_PAGE_SIZE]
 /* Remains NULL until mapping will be finished by Xen */
 shared_info_t *HYPERVISOR_shared_info = NULL;
 
+
+int xen_consoleio_putc(int c)
+{
+	register unsigned int r0 __asm__("r0") = CONSOLEIO_write;
+	register size_t r1 __asm__("r1") = sizeof(char);
+	register char * r2 __asm__("r2") = (char *) &c;
+	register unsigned int r16 __asm__("r16") = __HYPERVISOR_console_io;
+	register int ret __asm__("r0");
+
+	__asm__ volatile ("hvc #0xEA1" : "=r" (ret) : "0" (r0), "r" (r1),
+			"r" (r2), "r" (r16) : "memory");
+
+	if (ret == 0)
+		return sizeof(char);
+	else
+		return 0;
+}
+
 static int xen_map_shared_info (const struct shared_info *shared_page) {
 	int ret = 0;
 	struct xen_add_to_physmap xatp;
@@ -50,6 +68,8 @@ static int xen_enlighten_init(const struct device *dev) {
 
 	struct shared_info *info = (struct shared_info *) shared_info_buf;
 
+	__stdout_hook_install(xen_consoleio_putc);
+	__printk_hook_install(xen_consoleio_putc);
 	ret = xen_map_shared_info(info);
 	if (ret) {
 		printk("%s: failed to map for Xen shared page, ret = %d\n",
@@ -64,4 +84,4 @@ static int xen_enlighten_init(const struct device *dev) {
 	return ret;
 }
 
-SYS_INIT(xen_enlighten_init, PRE_KERNEL_1, CONFIG_KERNEL_INIT_PRIORITY_DEFAULT);
+SYS_INIT(xen_enlighten_init, PRE_KERNEL_1, CONFIG_KERNEL_INIT_PRIORITY_DEVICE);

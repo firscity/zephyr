@@ -11,7 +11,6 @@
 #include <xen/hvm.h>
 #include <xen/public/io/console.h>
 #include <xen/public/io/ring.h>
-#include <xen/public/io/xenbus.h>
 #include <xen/public/io/xs_wire.h>
 #include <xen/public/sched.h>
 #include <xen/public/xen.h>
@@ -30,6 +29,12 @@
 
 static struct xencons_interface *console_intf = NULL;
 static uint64_t console_evtchn = 0;
+
+/* TODO: move it to 'struct xen_console' */
+static uart_irq_callback_user_data_t xen_cb = NULL;
+static void *xen_cb_data = NULL;
+
+static void xen_uart_cb (void *data);
 
 static int __read_from_ring(char *data, int len)
 {
@@ -74,7 +79,7 @@ static int __write_to_ring(const char *data, int len)
 		sent++;
 	}
 
-	compiler_barrier();			/* write ring before updating pointer */
+	compiler_barrier();
 	console_intf->out_prod = prod;
 
 	if (sent)
@@ -85,9 +90,15 @@ static int __write_to_ring(const char *data, int len)
 
 static int xen_hvc_poll_in(const struct device *dev,
 			unsigned char *c) {
-	/* TODO: definitely this is bad solution - notifying HV every time */
-	(void) __read_from_ring(c, sizeof(*c));
+	int ret = 0;
+	char temp;
 
+	ret = __read_from_ring(&temp, sizeof(temp));
+	if (!ret)
+		/* Char was not received */
+		return -1;
+
+	*c = temp;
 	return 0;
 }
 
@@ -124,7 +135,11 @@ static int xen_hvc_fifo_read(const struct device *dev, uint8_t *rx_data,
 }
 
 static void xen_hvc_irq_tx_enable(const struct device *dev) {
-
+	/*
+	 * Need to explicitly call UART callback on TX enabling to
+	 * process available buffered TX actions.
+	 */
+	xen_uart_cb(dev);
 }
 
 static void xen_hvc_irq_tx_disable(const struct device *dev) {
@@ -132,7 +147,7 @@ static void xen_hvc_irq_tx_disable(const struct device *dev) {
 }
 
 static int xen_hvc_irq_tx_ready(const struct device *dev) {
-	return 0;
+	return 1;
 }
 
 static void xen_hvc_irq_rx_enable(const struct device *dev) {
@@ -144,11 +159,11 @@ static void xen_hvc_irq_rx_disable(const struct device *dev) {
 }
 
 static int xen_hvc_irq_tx_complete(const struct device *dev) {
-	return 0;
+	return 1;
 }
 
 static int xen_hvc_irq_rx_ready(const struct device *dev){
-	return 0;
+	return (console_intf->in_prod != console_intf->in_cons);
 }
 
 static void xen_hvc_irq_err_enable(const struct device *dev) {
@@ -164,15 +179,22 @@ static int xen_hvc_irq_is_pending(const struct device *dev) {
 }
 
 static int xen_hvc_irq_update(const struct device *dev) {
-	return 0;
+	return 1;
+}
+
+static void xen_uart_cb (void *data) {
+	if (xen_cb && xen_cb_data)
+		xen_cb(data, xen_cb_data);
 }
 
 static void xen_hvc_irq_callback_set(const struct device *dev,
 		 uart_irq_callback_user_data_t cb,
 		 void *user_data) {
-
+	printk("setting callback for uart\n");
+	xen_cb = cb;
+	xen_cb_data = user_data;
 }
-#endif
+#endif /* CONFIG_UART_INTERRUPT_DRIVEN */
 
 static const struct uart_driver_api xen_hvc_api = {
 	.poll_in = xen_hvc_poll_in,
@@ -195,24 +217,24 @@ static const struct uart_driver_api xen_hvc_api = {
 #endif /* CONFIG_UART_INTERRUPT_DRIVEN */
 };
 
-
-
 int xen_console_init(const struct device *dev) {
-	ARG_UNUSED(dev);
+	//ARG_UNUSED(dev);
 	int ret = 0;
 	uint64_t console_pfn = 0;
 	char buf[100];
 
-
+	printk("xen_console_init called!\n");
 	ret = hvm_get_parameter(HVM_PARAM_CONSOLE_EVTCHN, &console_evtchn);
 	if (ret) {
-		printk("%s: failed to get Xen console event channel, ret = %d\n", __func__, ret);
+		printk("%s: failed to get Xen console evtchn, ret = %d\n",
+				__func__, ret);
 		return ret;
 	}
 
 	ret = hvm_get_parameter(HVM_PARAM_CONSOLE_PFN, &console_pfn);
 	if (ret) {
-		printk("%s: failed to get Xen console PFN, ret = %d\n", __func__, ret);
+		printk("%s: failed to get Xen console PFN, ret = %d\n",
+				__func__, ret);
 		return ret;
 	}
 
@@ -225,15 +247,20 @@ int xen_console_init(const struct device *dev) {
 	arch_mem_map(console_intf, (uintptr_t) console_intf,
 			CONFIG_MMU_PAGE_SIZE, K_MEM_PERM_RW | K_MEM_CACHE_WB);
 
+#ifdef CONFIG_UART_INTERRUPT_DRIVEN
+	bind_event_channel(console_evtchn, xen_uart_cb, dev);
+#endif /* CONFIG_UART_INTERRUPT_DRIVEN */
+
 	snprintf(buf, sizeof(buf), "First print the Zephyr PV console!\n");
 	(void)__write_to_ring(buf, strlen(buf));
 
 	snprintf(buf, sizeof(buf), "Console evtchn = %lld\n", console_evtchn);
 	(void)__write_to_ring(buf, strlen(buf));
 
+	printk("Xen UART HVC ready!\n");
 	return 0;
 }
 
 
-DEVICE_DEFINE(uart_hvc_xen, "XEN_HVC", xen_console_init, NULL, NULL, NULL,
-		PRE_KERNEL_1, CONFIG_KERNEL_INIT_PRIORITY_DEVICE, &xen_hvc_api);
+DEVICE_DEFINE(uart_hvc_xen, "xen_hvc", xen_console_init, NULL, NULL, NULL,
+		PRE_KERNEL_1, CONFIG_XEN_HVC_INIT_PRIORITY, &xen_hvc_api);

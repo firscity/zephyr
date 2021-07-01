@@ -15,7 +15,7 @@
 static evtchn_handle_t event_channels[EVTCHN_2L_NR_CHANNELS];
 
 /* One bit per port, sets to 1 during binding */
-static uint64_t evtchn_states[EVTCHN_2L_NR_CHANNELS / (8 * sizeof(uint64_t))];
+//static uint64_t evtchn_states[EVTCHN_2L_NR_CHANNELS / (8 * sizeof(uint64_t))];
 
 extern struct shared_info *HYPERVISOR_shared_info;
 
@@ -99,12 +99,7 @@ int unmask_event_channel(evtchn_port_t port) {
 
 static void clear_event_channel(evtchn_port_t port) {
 	shared_info_t *s = HYPERVISOR_shared_info;
-
-	//printk("%s: port - %d, evtchn_pending before - %llx\n", __func__, port, s->evtchn_pending[0]);
 	sys_bitfield_clear_bit((mem_addr_t) s->evtchn_pending, port);
-	compiler_barrier();
-
-	//printk("%s: evtchn_pending after - %llx\n", __func__, s->evtchn_pending[0]);
 }
 
 static inline xen_ulong_t get_pending_events(xen_ulong_t pos) {
@@ -144,6 +139,7 @@ static void events_isr(void *data) {
 	/* Can not use system atomic_t/atomic_set() due to 32-bit casting */
 	pos_selector = __atomic_exchange_n(&vcpu->evtchn_pending_sel,
 					0, __ATOMIC_SEQ_CST);
+
 	while (pos_selector) {
 		/* Find first position, clear it in selector and process */
 		pos_index = __builtin_ffsl(pos_selector) - 1;
