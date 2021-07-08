@@ -18,9 +18,10 @@ struct hvc_xen_data {
 	const struct device *dev;
 	struct xencons_interface *intf;
 	uint64_t evtchn;
+
 #ifdef CONFIG_UART_INTERRUPT_DRIVEN
-	uart_irq_callback_user_data_t cb;
-	void *cb_data;
+	uart_irq_callback_user_data_t irq_cb;
+	void *irq_cb_data;
 #endif /* CONFIG_UART_INTERRUPT_DRIVEN */
 };
 

@@ -145,20 +145,17 @@ static void xen_hvc_irq_tx_enable(const struct device *dev) {
 	hvc_uart_evtchn_cb(dev->data);
 }
 
-static void xen_hvc_irq_tx_disable(const struct device *dev) {
-
-}
-
 static int xen_hvc_irq_tx_ready(const struct device *dev) {
 	return 1;
 }
 
 static void xen_hvc_irq_rx_enable(const struct device *dev) {
-
-}
-
-static void xen_hvc_irq_rx_disable(const struct device *dev) {
-
+	/*
+	 * Need to explicitly call UART callback on RX enabling to
+	 * process available buffered RX actions, because no HV events
+	 * will be generated on rx_enable.
+	 */
+	hvc_uart_evtchn_cb(dev->data);
 }
 
 static int xen_hvc_irq_tx_complete(const struct device *dev) {
@@ -171,19 +168,12 @@ static int xen_hvc_irq_rx_ready(const struct device *dev) {
 	return (data->intf->in_prod != data->intf->in_cons);
 }
 
-static void xen_hvc_irq_err_enable(const struct device *dev) {
-
-}
-
-static void xen_hvc_irq_err_disable(const struct device *dev) {
-
-}
-
 static int xen_hvc_irq_is_pending(const struct device *dev) {
 	return 0;
 }
 
 static int xen_hvc_irq_update(const struct device *dev) {
+	/* Nothing needs to be updated before actual ISR */
 	return 1;
 }
 
@@ -193,8 +183,8 @@ static void xen_hvc_irq_callback_set(const struct device *dev,
 
 	printk("setting callback for uart\n");
 
-	data->cb = cb;
-	data->cb_data = user_data;
+	data->irq_cb = cb;
+	data->irq_cb_data = user_data;
 }
 #endif /* CONFIG_UART_INTERRUPT_DRIVEN */
 
@@ -205,14 +195,10 @@ static const struct uart_driver_api xen_hvc_api = {
 	.fifo_fill = xen_hvc_fifo_fill,
 	.fifo_read = xen_hvc_fifo_read,
 	.irq_tx_enable = xen_hvc_irq_tx_enable,
-	.irq_tx_disable = xen_hvc_irq_tx_disable,
 	.irq_tx_ready = xen_hvc_irq_tx_ready,
 	.irq_rx_enable = xen_hvc_irq_rx_enable,
-	.irq_rx_disable = xen_hvc_irq_rx_disable,
 	.irq_tx_complete = xen_hvc_irq_tx_complete,
 	.irq_rx_ready = xen_hvc_irq_rx_ready,
-	.irq_err_enable = xen_hvc_irq_err_enable,
-	.irq_err_disable = xen_hvc_irq_err_disable,
 	.irq_is_pending = xen_hvc_irq_is_pending,
 	.irq_update = xen_hvc_irq_update,
 	.irq_callback_set = xen_hvc_irq_callback_set,
@@ -223,8 +209,8 @@ static const struct uart_driver_api xen_hvc_api = {
 static void hvc_uart_evtchn_cb(void *priv) {
 	struct hvc_xen_data *data = priv;
 
-	if (data->cb && data->cb_data)
-		data->cb(data->dev, data->cb_data);
+	if (data->irq_cb)
+		data->irq_cb(data->dev, data->irq_cb_data);
 }
 #endif /* CONFIG_UART_INTERRUPT_DRIVEN */
 
