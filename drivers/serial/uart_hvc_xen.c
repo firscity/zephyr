@@ -152,17 +152,22 @@ static void xen_hvc_irq_rx_enable(const struct device *dev) {
 }
 
 static int xen_hvc_irq_tx_complete(const struct device *dev) {
+	/*
+	 * TX is performed by copying in ring buffer by fifo_fill,
+	 * so it will be always completed.
+	 */
 	return 1;
 }
 
 static int xen_hvc_irq_rx_ready(const struct device *dev) {
 	struct hvc_xen_data *data = dev->data;
 
+	/* RX is ready only if data is available in ring buffer */
 	return (data->intf->in_prod != data->intf->in_cons);
 }
 
 static int xen_hvc_irq_is_pending(const struct device *dev) {
-	return 0;
+	return xen_hvc_irq_rx_ready(dev);
 }
 
 static int xen_hvc_irq_update(const struct device *dev) {
@@ -173,8 +178,6 @@ static int xen_hvc_irq_update(const struct device *dev) {
 static void xen_hvc_irq_callback_set(const struct device *dev,
 		 uart_irq_callback_user_data_t cb, void *user_data) {
 	struct hvc_xen_data *data = dev->data;
-
-	printk("setting callback for uart\n");
 
 	data->irq_cb = cb;
 	data->irq_cb_data = user_data;
@@ -202,8 +205,9 @@ static const struct uart_driver_api xen_hvc_api = {
 static void hvc_uart_evtchn_cb(void *priv) {
 	struct hvc_xen_data *data = priv;
 
-	if (data->irq_cb)
+	if (data->irq_cb) {
 		data->irq_cb(data->dev, data->irq_cb_data);
+	}
 }
 #endif /* CONFIG_UART_INTERRUPT_DRIVEN */
 
