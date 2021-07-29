@@ -36,7 +36,7 @@ static int read_from_ring(const struct device *dev, char *str, int len)
 	XENCONS_RING_IDX in_idx = 0;
 
 	compiler_barrier();
-	__ASSERT((prod - cons) > sizeof(hvc_data->intf->in),
+	__ASSERT((prod - cons) < sizeof(hvc_data->intf->in),
 			"Invalid input ring buffer");
 
 	while (cons != prod && recv < len) {
@@ -62,7 +62,7 @@ static int write_to_ring(const struct device *dev, const char *str, int len)
 	XENCONS_RING_IDX out_idx = 0;
 
 	compiler_barrier();
-	__ASSERT((prod - cons) > sizeof(hvc_data->intf->out),
+	__ASSERT((prod - cons) < sizeof(hvc_data->intf->out),
 			"Invalid output ring buffer");
 
 	while ((sent < len) && ((prod - cons) < sizeof(hvc_data->intf->out))) {
