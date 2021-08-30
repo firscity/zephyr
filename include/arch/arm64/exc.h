@@ -47,6 +47,11 @@ struct __esf {
 	uint64_t x30;
 	uint64_t spsr;
 	uint64_t elr;
+	uint64_t pad[8];
+	uint64_t test1;
+	uint64_t test2;
+	uint64_t spsr_copy;
+	uint64_t elr_copy;
 } __aligned(16);
 
 typedef struct __esf z_arch_esf_t;

@@ -26,7 +26,7 @@ void notify_evtchn(evtchn_port_t port)
 	struct evtchn_send send;
 
 	if (port >= EVTCHN_2L_NR_CHANNELS) {
-		printk("%s: trying to send notify for invalid evtchn #%u",
+		printk("%s: trying to send notify for invalid evtchn #%u\n",
 				__func__, port);
 		return;
 	}
@@ -38,18 +38,18 @@ void notify_evtchn(evtchn_port_t port)
 
 int bind_event_channel(evtchn_port_t port, evtchn_cb_t cb, void *data) {
 	if (port >= EVTCHN_2L_NR_CHANNELS) {
-		printk("%s: trying to bind invalid evtchn #%u",
+		printk("%s: trying to bind invalid evtchn #%u\n",
 				__func__, port);
 		return -EINVAL;
 	}
 
 	if (!cb) {
-		printk("%s: NULL callback for evtchn #%u", __func__, port);
+		printk("%s: NULL callback for evtchn #%u\n", __func__, port);
 		return -EINVAL;
 	}
 
 	if (event_channels[port].cb != empty_callback)
-		printk("%s: re-bind callback for evtchn #%u", __func__, port);
+		printk("%s: re-bind callback for evtchn #%u\n", __func__, port);
 
 	event_channels[port].priv = data;
 	event_channels[port].cb = cb;
@@ -59,7 +59,7 @@ int bind_event_channel(evtchn_port_t port, evtchn_cb_t cb, void *data) {
 
 int unbind_event_channel(evtchn_port_t port) {
 	if (port >= EVTCHN_2L_NR_CHANNELS) {
-		printk("%s: trying to unbind invalid evtchn #%u",
+		printk("%s: trying to unbind invalid evtchn #%u\n",
 				__func__, port);
 		return -EINVAL;
 	}
@@ -74,7 +74,7 @@ int mask_event_channel(evtchn_port_t port) {
 	shared_info_t *s = HYPERVISOR_shared_info;
 
 	if (port >= EVTCHN_2L_NR_CHANNELS) {
-		printk("%s: trying to mask invalid evtchn #%u",
+		printk("%s: trying to mask invalid evtchn #%u\n",
 				__func__, port);
 		return -EINVAL;
 	}
@@ -88,7 +88,7 @@ int unmask_event_channel(evtchn_port_t port) {
 	shared_info_t *s = HYPERVISOR_shared_info;
 
 	if (port >= EVTCHN_2L_NR_CHANNELS) {
-		printk("%s: trying to unmask invalid evtchn #%u",
+		printk("%s: trying to unmask invalid evtchn #%u\n",
 				__func__, port);
 		return -EINVAL;
 	}
@@ -165,7 +165,7 @@ int xen_events_init(void) {
 
 	if (!HYPERVISOR_shared_info) {
 		/* shared info was not mapped */
-		printk("%s: shared_info - NULL, can't setup events", __func__);
+		printk("%s: shared_info - NULL, can't setup events\n", __func__);
 		return -EINVAL;
 	}
 
@@ -175,11 +175,11 @@ int xen_events_init(void) {
 		event_channels[i].priv = NULL;
 	}
 
-	IRQ_CONNECT(DT_IRQ_BY_IDX(DT_INST(0,xen_xen), 0, irq),
-		DT_IRQ_BY_IDX(DT_INST(0,xen_xen), 0, priority), events_isr,
-		NULL, DT_IRQ_BY_IDX(DT_INST(0,xen_xen), 0, flags));
-
-	irq_enable(DT_IRQ_BY_IDX(DT_INST(0,xen_xen), 0, irq));
+//	IRQ_CONNECT(DT_IRQ_BY_IDX(DT_INST(0,xen_xen), 0, irq),
+//		DT_IRQ_BY_IDX(DT_INST(0,xen_xen), 0, priority), events_isr,
+//		NULL, DT_IRQ_BY_IDX(DT_INST(0,xen_xen), 0, flags));
+//
+//	irq_enable(DT_IRQ_BY_IDX(DT_INST(0,xen_xen), 0, irq));
 
 	printk("%s: events inited\n", __func__);
 	return 0;

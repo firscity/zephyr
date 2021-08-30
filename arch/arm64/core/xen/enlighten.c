@@ -55,12 +55,12 @@ static int xen_enlighten_init(const struct device *dev) {
 	/* Set value for globally visible pointer */
 	HYPERVISOR_shared_info = info;
 
-	ret = xen_events_init();
-	if (ret) {
-		printk("%s: failed init Xen event channels, ret = %d\n",
-			__func__, ret);
-		return ret;
-	}
+//	ret = xen_events_init();
+//	if (ret) {
+//		printk("%s: failed init Xen event channels, ret = %d\n",
+//			__func__, ret);
+//		return ret;
+//	}
 
 	return 0;
 }

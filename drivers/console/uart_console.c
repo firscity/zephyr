@@ -599,7 +599,7 @@ static int uart_console_init(const struct device *arg)
 	/* Claim console device */
 	uart_console_dev = device_get_binding(CONFIG_UART_CONSOLE_ON_DEV_NAME);
 
-	/* uart_console_hook_install(); */
+	uart_console_hook_install();
 
 	return 0;
 }

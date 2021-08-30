@@ -30,7 +30,7 @@ K_KERNEL_STACK_DEFINE(xenstore_thrd_stack, 1024);
 struct k_thread xenstore_thrd;
 k_tid_t xenstore_tid;
 
-K_KERNEL_STACK_DEFINE(read_thrd_stack, 1024);
+K_KERNEL_STACK_DEFINE(read_thrd_stack, 4096);
 struct k_thread read_thrd;
 k_tid_t read_tid;
 
@@ -253,14 +253,12 @@ static void xenbus_read_thrd2(void *p1, void *p2, void *p3)
 	printk("%s: running xenbus ls for %s\n", __func__, buf);
 	dirs = xs_ls(XBT_NIL, buf);
 
-	/* TODO: check what is wrong with k_free() and who allocates memory for dirs */
 	printk("xenbus_ls test results for pre = %s\n", buf);
 	for (x = 0; dirs[x]; x++)
 	{
 		printk("ls %s[%d] -> %s\n", buf, x, dirs[x]);
-		//k_free(dirs[x]);
 	}
-//	k_free(dirs);
+	k_free(dirs);
 }
 
 static int xenbus_init(const struct device *dev)
@@ -311,8 +309,8 @@ static int xenbus_init(const struct device *dev)
 
 
 
-	/* --------------------------------------------------------------- */
-	/* TODO: remove this test code */
+//	/* --------------------------------------------------------------- */
+//	/* TODO: remove this test code */
 
 	read_tid = k_thread_create(&read_thrd, read_thrd_stack,
 			K_KERNEL_STACK_SIZEOF(read_thrd_stack),

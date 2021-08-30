@@ -4,4 +4,6 @@
 zephyr_sources(hvm.c)
 zephyr_sources(events.c)
 
-add_subdirectory(xenbus)
+zephyr_sources(test_irq.c)
+
+#add_subdirectory(xenbus)

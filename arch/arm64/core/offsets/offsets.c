@@ -43,6 +43,8 @@ GEN_NAMED_OFFSET_SYM(_callee_saved_t, sp_elx, sp_elx);
 GEN_ABSOLUTE_SYM(___callee_saved_t_SIZEOF, sizeof(struct _callee_saved));
 
 GEN_NAMED_OFFSET_SYM(_esf_t, spsr, spsr_elr);
+GEN_NAMED_OFFSET_SYM(_esf_t, spsr_copy, spsr_elr_copy);
+GEN_NAMED_OFFSET_SYM(_esf_t, test1, test1);
 GEN_NAMED_OFFSET_SYM(_esf_t, x18, x18_x30);
 GEN_NAMED_OFFSET_SYM(_esf_t, x16, x16_x17);
 GEN_NAMED_OFFSET_SYM(_esf_t, x14, x14_x15);

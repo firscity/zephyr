@@ -49,7 +49,16 @@ _ASM_FILE_PROLOGUE
 
 	mrs	\xreg0, spsr_el1
 	mrs	\xreg1, elr_el1
+	cmp	\xreg1, #0x200
+	bge	1f
+	hlt	#0
+
+1:
 	stp	\xreg0, \xreg1, [sp, ___esf_t_spsr_elr_OFFSET]
+	stp	\xreg0, \xreg1, [sp, ___esf_t_spsr_elr_copy_OFFSET]
+	ldr	\xreg0, =0x123456
+	ldr	\xreg1, =0x123456
+	stp	\xreg0, \xreg1, [sp, ___esf_t_test1_OFFSET]
 
 	/* Clear usermode flag and increment exception depth */
 	mrs	\xreg0, tpidrro_el0
@@ -61,6 +70,7 @@ _ASM_FILE_PROLOGUE
 #ifdef CONFIG_FPU_SHARING
 	bl	z_arm64_fpu_enter_exc
 #endif
+
 
 .endm
 
@@ -222,6 +232,11 @@ SECTION_FUNC(TEXT, z_arm64_exit_exc)
 
 	ldp	x0, x1, [sp, ___esf_t_spsr_elr_OFFSET]
 	msr	spsr_el1, x0
+	cmp	x1, #0x200
+	bge	1f
+	hlt	#0
+
+1:
 	msr	elr_el1, x1
 
 	/* Restore the kernel/user mode flag and decrement exception depth */

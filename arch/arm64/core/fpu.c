@@ -195,6 +195,9 @@ static bool simulate_str_q_insn(z_arch_esf_t *esf)
 	if (pc != (uint32_t *)esf->elr) {
 		/* resume execution past the simulated instructions */
 		esf->elr = (uintptr_t)pc;
+		if (esf->elr < 0x200) {
+			__asm volatile ("hlt #0");
+		}
 		return true;
 	}
 
