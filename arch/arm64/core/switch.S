@@ -85,6 +85,10 @@ SECTION_FUNC(TEXT, z_arm64_context_switch)
 
 	/* Restore SP_EL1 */
 	ldr	x4, [x0, #_thread_offset_to_callee_saved_sp_elx]
+
+	ldr	x2, =after_cs_sp_addr
+	str	x4, [x2]
+
 	mov	sp, x4
 
 #ifdef CONFIG_USERSPACE
@@ -169,6 +173,10 @@ context_switch:
 	 *  - x0 = new_thread->switch_handle = switch_to thread
 	 *  - x1 = &old_thread->switch_handle = current thread
 	 */
+	ldr	x0, =before_cs_sp_addr
+	mov	x1, sp
+	str	x1, [x0]
+
 	ldp	x0, x1, [sp, ___esf_t_x0_x1_OFFSET]
 
 	/* Get old thread from x1 */

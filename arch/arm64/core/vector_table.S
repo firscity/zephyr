@@ -47,6 +47,10 @@ _ASM_FILE_PROLOGUE
 	stp	x16, x17, [sp, ___esf_t_x16_x17_OFFSET]
 	stp	x18, x30, [sp, ___esf_t_x18_x30_OFFSET]
 
+	ldr	\xreg0, =enter_sp_addr
+	mov	\xreg1, sp
+	str	\xreg1, [\xreg0]
+
 	mrs	\xreg0, spsr_el1
 	mrs	\xreg1, elr_el1
 	cmp	\xreg1, #0x200
@@ -231,12 +235,12 @@ SECTION_FUNC(TEXT, z_arm64_exit_exc)
 #endif
 
 	ldp	x0, x1, [sp, ___esf_t_spsr_elr_OFFSET]
-	msr	spsr_el1, x0
 	cmp	x1, #0x200
 	bge	1f
 	hlt	#0
 
 1:
+	msr	spsr_el1, x0
 	msr	elr_el1, x1
 
 	/* Restore the kernel/user mode flag and decrement exception depth */
