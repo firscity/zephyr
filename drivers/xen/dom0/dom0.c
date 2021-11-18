@@ -99,7 +99,7 @@ uint64_t load_domu_image(int domid, uint64_t base_addr)
 	set_xen_guest_handle(xatpb.gpfns, mapped_pfns);
 	set_xen_guest_handle(xatpb.idxs, indexes);
 	set_xen_guest_handle(xatpb.errs, err_codes);
-	xatpb.domid = 0;
+	xatpb.domid = DOMID_SELF;
 	xatpb.u.foreign_domid = domid;
 	xatpb.space = XENMAPSPACE_gmfn_foreign;
 	xatpb.size = nr_pages;
@@ -116,6 +116,16 @@ uint64_t load_domu_image(int domid, uint64_t base_addr)
 	cache_data_all(K_CACHE_WB);
 
 	/* TODO: remove from physmap and k_free mapped memory */
+	for (i = 0; i < nr_pages; i++) {
+		struct xen_remove_from_physmap xrfp;
+		xrfp.domid = DOMID_SELF;
+		xrfp.gpfn = mapped_pfns[i];
+		rc = HYPERVISOR_memory_op(XENMEM_remove_from_physmap, &xrfp);
+		printk("return status for gpfn 0x%llx  =  %d\n", mapped_pfns[i], rc);
+	}
+
+	/* trying to erase first 8K of kernel for test */
+	memset(mapped_domu, 0, 8192);
 
 	/* .text start address in domU memory */
 	return base_addr + zhdr->text_offset;
@@ -123,6 +133,7 @@ uint64_t load_domu_image(int domid, uint64_t base_addr)
 
 static int test_domU_init(const struct device *d)
 {
+
 	int rc = 0;
 	uint32_t domid = 1;
 	struct xen_domctl_createdomain config;

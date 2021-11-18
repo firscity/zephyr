@@ -37,7 +37,7 @@
 #include "grant_table.h"
 #include "memory.h"
 
-#define XEN_DOMCTL_INTERFACE_VERSION 0x00000013
+#define XEN_DOMCTL_INTERFACE_VERSION 0x00000014
 
 /*
  * NB. xen_domctl.domain is an IN/OUT parameter for this operation.
