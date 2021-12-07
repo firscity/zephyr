@@ -30,6 +30,9 @@
 
 LOG_MODULE_REGISTER(xen_gnttab);
 
+/* Timeout for grant table ops retrying */
+#define GOP_RETRY_DELAY 200
+
 /* NR_GRANT_FRAMES must be less than or equal to that configured in Xen */
 #define NR_GRANT_FRAMES			1
 #define NR_GRANT_ENTRIES \
@@ -66,6 +69,7 @@ static void put_free_entry(grant_ref_t gref)
 	flags = irq_lock();
 	gnttab.gref_list[gref] = gnttab.gref_list[0];
 	gnttab.gref_list[0] = gref;
+
 	irq_unlock(flags);
 
 	k_sem_give(&gnttab.sem);
@@ -130,9 +134,8 @@ static int gnttab_reset_flags(grant_ref_t gref)
 	return 1;
 }
 
-int gnttab_update_grant(grant_ref_t gref,
-		domid_t domid, unsigned long mfn,
-		int readonly)
+int gnttab_update_grant(grant_ref_t gref, domid_t domid,
+		unsigned long mfn, int readonly)
 {
 	int rc;
 
@@ -220,6 +223,61 @@ grant_ref_t gnttab_alloc_and_grant(void **map)
 	return gref;
 }
 
+static void gop_eagain_retry(int cmd, struct gnttab_map_grant_ref *gref)
+{
+	unsigned int step = 10, delay = step;
+	int16_t *status = &gref->status;
+
+	do {
+		HYPERVISOR_grant_table_op(cmd, gref, 1);
+		if (*status == GNTST_eagain)
+			k_sleep(K_MSEC(delay));
+
+		delay += step;
+	} while ((*status == GNTST_eagain) && (delay < GOP_RETRY_DELAY));
+
+	if (delay >= GOP_RETRY_DELAY) {
+		LOG_ERR("Failed to map grant, timeout reached\n");
+		*status = GNTST_bad_page;
+	}
+}
+
+int gnttab_map_refs(struct gnttab_map_grant_ref *map_ops, unsigned int count)
+{
+	int i, ret;
+
+	ret = HYPERVISOR_grant_table_op(GNTTABOP_map_grant_ref, map_ops, count);
+	if (ret)
+		return ret;
+
+	for (i = 0; i < count; i++) {
+		switch (map_ops[i].status) {
+		case GNTST_no_device_space:
+			LOG_WRN("map_grant_ref failed, no device space for page #%d\n", i);
+			break;
+
+		case GNTST_eagain:
+			/* Operation not done; need to try again */
+			gop_eagain_retry(GNTTABOP_map_grant_ref, &map_ops[i]);
+			/* Need to re-check status for current page */
+			i--;
+
+			break;
+
+		default:
+			break;
+		}
+	}
+
+	return 0;
+}
+
+int gnttab_unmap_refs(struct gnttab_map_grant_ref *unmap_ops, unsigned int count)
+{
+	return HYPERVISOR_grant_table_op(GNTTABOP_unmap_grant_ref, unmap_ops, count);
+}
+
+
 static const char * const gnttab_error_msgs[] = GNTTABOP_error_msgs;
 
 const char *gnttabop_error(int16_t status)
@@ -234,24 +292,44 @@ const char *gnttabop_error(int16_t status)
 
 /* TODO: remove test code */
 /*-----------------------------------------------------*/
-static uint8_t gnttab_buf[XEN_PAGE_SIZE]
-			__attribute__((aligned(XEN_PAGE_SIZE)));
+static uint8_t gnttab_buf[XEN_PAGE_SIZE] __aligned(XEN_PAGE_SIZE);
 
-static void *test_page;
 
 void gnttab_test(void)
 {
-	grant_ref_t alloc_ref, static_ref;
-	uintptr_t buf_mfn = virt_to_mfn(gnttab_buf);
+	int rc = 0;
 
-	static_ref = gnttab_grant_access(0, buf_mfn, 0);
-	memset(gnttab_buf, 0xAC, 256);
-	LOG_INF("%s: static page grant ref = %d\n", __func__, static_ref);
+	memset(gnttab_buf, 0xEE, 128);
+	struct gnttab_map_grant_ref map_ops;
 
+	memset(&map_ops, 0, sizeof(map_ops));
+	map_ops.dom = 0;
+	map_ops.flags = GNTMAP_host_map;
+	map_ops.host_addr = (uintptr_t) gnttab_buf;
+	map_ops.ref = 8;
 
-	alloc_ref = gnttab_alloc_and_grant(&test_page);
-	memset(test_page, 0xAB, 256);
-	LOG_INF("%s: alloc and grant page with ref = %d\n", __func__, alloc_ref);
+	rc = gnttab_map_refs(&map_ops, 1);
+	printk("gnttab map return code = %d\n", rc);
+	if (rc)
+		return;
+
+	/* Set value and wait for read from another domain */
+	memset(gnttab_buf, 0xCE, 256);
+	k_sleep(K_SECONDS(20));
+	/* Read value, set after read from another domain */
+	printk("memory value = 0x%llx\n", *((uint64_t *) gnttab_buf));
+
+	rc = gnttab_unmap_refs(&map_ops, 1);
+	printk("gnttab unmap return code = %d\n", rc);
+//	/* For testing allocation and granting from this domain */
+//	static_ref = gnttab_grant_access(0, buf_mfn, 0);
+//	memset(gnttab_buf, 0xAC, 256);
+//	LOG_INF("%s: static page grant ref = %d\n", __func__, static_ref);
+//
+//
+//	alloc_ref = gnttab_alloc_and_grant(&test_page);
+//	memset(test_page, 0xAB, 256);
+//	LOG_INF("%s: alloc and grant page with ref = %d\n", __func__, alloc_ref);
 }
 /*-----------------------------------------------------*/
 
