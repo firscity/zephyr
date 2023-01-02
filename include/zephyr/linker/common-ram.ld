@@ -37,21 +37,13 @@
         } GROUP_DATA_LINK_IN(RAMABLE_REGION, ROMABLE_REGION)
 
 #if defined(CONFIG_XEN_INITIAL_DOMAIN)
-        SECTION_DATA_PROLOGUE(img_domd,,)
-        {
+	SECTION_DATA_PROLOGUE(img_domd,,)
+	{
 		. = ALIGN(64);
 		__img_domd_start = .;
 		KEEP(*(".img_domd"));
 		__img_domd_end = .;
-        } GROUP_DATA_LINK_IN(RAMABLE_REGION, ROMABLE_REGION)
-
-        SECTION_DATA_PROLOGUE(img_domu,,)
-        {
-		. = ALIGN(64);
-		__img_domu_start = .;
-		KEEP(*(".img_domu"));
-		__img_domu_end = .;
-        } GROUP_DATA_LINK_IN(RAMABLE_REGION, ROMABLE_REGION)
+	} GROUP_DATA_LINK_IN(RAMABLE_REGION, ROMABLE_REGION)
 
 	SECTION_DATA_PROLOGUE(dtb_domd,,)
 	{
@@ -60,14 +52,6 @@
 		KEEP(*(".dtb_domd"));
 		__dtb_domd_end = .;
 	} GROUP_DATA_LINK_IN(RAMABLE_REGION, ROMABLE_REGION)
-
-        SECTION_DATA_PROLOGUE(dtb_domu,,)
-        {
-		. = ALIGN(64);
-		__dtb_domu_start = .;
-		KEEP(*(".dtb_domu"));
-		__dtb_domu_end = .;
-        } GROUP_DATA_LINK_IN(RAMABLE_REGION, ROMABLE_REGION)
 #endif
 
 #if CONFIG_PM_DEVICE
