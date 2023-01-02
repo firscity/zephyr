@@ -105,6 +105,35 @@ int xen_domctl_getdomaininfo(int domid, xen_domctl_getdomaininfo_t *dom_info)
 	return 0;
 }
 
+int xen_domctl_get_paging_mempool_size(int domid, uint64_t *size_mb) {
+	int rc;
+	xen_domctl_t domctl;
+
+	memset(&domctl, 0, sizeof(domctl));
+	domctl.cmd = XEN_DOMCTL_get_paging_mempool_size;
+	domctl.domain = domid;
+
+	rc = do_domctl(&domctl);
+	if (rc)
+		return rc;
+
+	*size_mb = domctl.u.paging_mempool.size;
+
+	return 0;
+}
+
+int xen_domctl_set_paging_mempool_size(int domid, uint64_t size_mb) {
+	int rc;
+	xen_domctl_t domctl;
+
+	memset(&domctl, 0, sizeof(domctl));
+	domctl.cmd = XEN_DOMCTL_set_paging_mempool_size;
+	domctl.domain = domid;
+	domctl.u.paging_mempool.size = size_mb;
+
+	return do_domctl(&domctl);
+}
+
 int xen_domctl_max_mem(int domid, uint64_t max_memkb)
 {
 	xen_domctl_t domctl;

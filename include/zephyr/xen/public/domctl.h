@@ -167,6 +167,37 @@ struct xen_domctl_getdomaininfo {
 typedef struct xen_domctl_getdomaininfo xen_domctl_getdomaininfo_t;
 DEFINE_XEN_GUEST_HANDLE(xen_domctl_getdomaininfo_t);
 
+/*
+ * Control shadow pagetables operation
+ */
+/* XEN_DOMCTL_shadow_op */
+
+/* Memory allocation accessors. */
+#define XEN_DOMCTL_SHADOW_OP_GET_ALLOCATION   30
+#define XEN_DOMCTL_SHADOW_OP_SET_ALLOCATION   31
+
+struct xen_domctl_shadow_op_stats {
+    uint32_t fault_count;
+    uint32_t dirty_count;
+};
+
+struct xen_domctl_shadow_op {
+    /* IN variables. */
+    uint32_t       op;       /* XEN_DOMCTL_SHADOW_OP_* */
+
+    /* OP_ENABLE: XEN_DOMCTL_SHADOW_ENABLE_* */
+    /* OP_PEAK / OP_CLEAN: XEN_DOMCTL_SHADOW_LOGDIRTY_* */
+    uint32_t       mode;
+
+    /* OP_GET_ALLOCATION / OP_SET_ALLOCATION */
+    uint32_t       mb;       /* Shadow memory allocation in MB */
+
+    /* OP_PEEK / OP_CLEAN */
+    XEN_GUEST_HANDLE_64(uint8_t) dirty_bitmap;
+    uint64_aligned_t pages; /* Size of buffer. Updated with actual size. */
+    struct xen_domctl_shadow_op_stats stats;
+};
+
 /* XEN_DOMCTL_max_mem */
 struct xen_domctl_max_mem {
     /* IN variables. */
@@ -383,6 +414,22 @@ struct xen_domctl_cacheflush {
     xen_pfn_t start_pfn, nr_pfns;
 };
 
+/*
+ * XEN_DOMCTL_get_paging_mempool_size / XEN_DOMCTL_set_paging_mempool_size.
+ *
+ * Get or set the paging memory pool size.  The size is in bytes.
+ *
+ * This is a dedicated pool of memory for Xen to use while managing the guest,
+ * typically containing pagetables.  As such, there is an implementation
+ * specific minimum granularity.
+ *
+ * The set operation can fail mid-way through the request (e.g. Xen running
+ * out of memory, no free memory to reclaim from the pool, etc.).
+ */
+struct xen_domctl_paging_mempool {
+    uint64_aligned_t size; /* Size in bytes. */
+};
+
 struct xen_domctl {
     uint32_t cmd;
 #define XEN_DOMCTL_createdomain                   1
@@ -468,6 +515,8 @@ struct xen_domctl {
 #define XEN_DOMCTL_get_cpu_policy                82
 #define XEN_DOMCTL_set_cpu_policy                83
 #define XEN_DOMCTL_vmtrace_op                    84
+#define XEN_DOMCTL_get_paging_mempool_size       85
+#define XEN_DOMCTL_set_paging_mempool_size       86
 #define XEN_DOMCTL_gdbsx_guestmemio            1000
 #define XEN_DOMCTL_gdbsx_pausevcpu             1001
 #define XEN_DOMCTL_gdbsx_unpausevcpu           1002
@@ -488,6 +537,7 @@ struct xen_domctl {
         struct xen_domctl_bind_pt_irq       bind_pt_irq;
         struct xen_domctl_memory_mapping    memory_mapping;
         struct xen_domctl_cacheflush        cacheflush;
+        struct xen_domctl_paging_mempool    paging_mempool;
         uint8_t                             pad[128];
     } u;
 };
