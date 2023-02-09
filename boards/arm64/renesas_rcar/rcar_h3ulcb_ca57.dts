@@ -1,0 +1,15 @@
+/*
+ * Copyright (c) 2023 EPAM Systems
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ */
+
+/dts-v1/;
+#include <arm64/renesas/r8a7795.dtsi>
+#include "gen3/rcar_h3ulcb_ca57/rcar_h3ulcb_ca57-pinctrl.dtsi"
+#include "gen3/common_salvator_xs_h3ulcb.dts"
+
+/ {
+	model = "H3ULCB CA57";
+};

@@ -1,0 +1,26 @@
+/*
+ * Copyright (c) 2019 Carlo Caione <ccaione@baylibre.com>
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ */
+#include <mem.h>
+
+/ {
+	chosen {
+		zephyr,sram = &ram;
+		zephyr,console = &scif2;
+		zephyr,shell-uart = &scif2;
+	};
+
+	ram: memory@48000000 {
+		device_type = "mmio-sram";
+		reg = <0x0 0x48000000 0x0 DT_SIZE_M(512)>;
+	};
+};
+
+&scif2 {
+	pinctrl-0 = <&scif2_data_a_tx_default &scif2_data_a_rx_default>;
+	pinctrl-names = "default";
+	status = "okay";
+};

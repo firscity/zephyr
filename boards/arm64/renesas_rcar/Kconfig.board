@@ -1,0 +1,4 @@
+# Copyright (c) 2023 EPAM Systems
+# SPDX-License-Identifier: Apache-2.0
+
+source "boards/arm64/renesas_rcar/gen3/*/Kconfig.board"

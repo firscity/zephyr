@@ -1,0 +1,9 @@
+# Copyright (c) 2023 EPAM Systems
+# SPDX-License-Identifier: Apache-2.0
+
+if BOARD_RCAR_H3ULCB_CA57
+
+config BOARD
+	default "rcar_h3ulcb_ca57"
+
+endif # BOARD_RCAR_H3ULCB_CA57
