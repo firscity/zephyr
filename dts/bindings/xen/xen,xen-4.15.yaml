@@ -1,11 +1,5 @@
-description: Xen Platform Control Registers
+description: Xen Platform Control Registers v4.15
 
 compatible: "xen,xen-4.15"
 
-include: base.yaml
-
-properties:
-  reg:
-    required: true
-  interrupts:
-    required: true
+include: xen,xen.yaml
