@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2022 EPAM Systems
 
-if SOC_XENVM
+if SOC_XENVM || SHIELD_XENVM_DOM0
 
 menu "Xen drivers"
 

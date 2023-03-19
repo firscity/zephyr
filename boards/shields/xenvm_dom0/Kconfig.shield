@@ -1,0 +1,7 @@
+# Copyright (c) 2023 EPAM Systems, Inc
+# SPDX-License-Identifier: Apache-2.0
+
+config SHIELD_XENVM_DOM0
+	def_bool $(shields_list_contains,xenvm_dom0)
+	depends on ARMV8_A
+	select XEN_INITIAL_DOMAIN

@@ -1,0 +1,33 @@
+/*
+ * Copyright (C) 2023 EPAM Systems.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/ {
+	interrupt-parent = <&gic>;
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	chosen {
+		zephyr,console = &xen_consoleio_hvc;
+		zephyr,shell-uart = &xen_consoleio_hvc;
+	};
+
+	psci {
+		method = "hvc";
+	};
+
+	/* todo: address of this node may be dynamically changed, need to handle it */
+	hypervisor: hypervisor@48200000 {
+		compatible = "xen,xen-4.15", "xen,xen";
+		reg = <0x0 0x48200000 0x0 0x1000000>;
+		interrupts = <GIC_PPI 0x0 IRQ_TYPE_EDGE IRQ_DEFAULT_PRIORITY>;
+		interrupt-parent = <&gic>;
+	};
+
+	xen_consoleio_hvc: hvc {
+		compatible = "xen,uart_hvc";
+		status = "okay";
+	};
+};
