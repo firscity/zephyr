@@ -1,0 +1,15 @@
+/*
+ * Copyright (C) 2023 EPAM Systems.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/delete-node/ &ram;
+/delete-node/ &scif2;
+
+/ {
+	ram: memory@60000000 {
+		device_type = "mmio-sram";
+		reg = <0x00 0x60000000 0x00 DT_SIZE_M(512)>;
+	};
+};
