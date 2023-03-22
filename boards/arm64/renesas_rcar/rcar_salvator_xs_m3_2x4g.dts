@@ -1,0 +1,15 @@
+/*
+ * Copyright (c) 2023 EPAM Systems
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ */
+
+/dts-v1/;
+#include <arm64/renesas/r8a7796.dtsi>
+#include "gen3/rcar_salvator_xs_m3_2x4g/salvator_xs_m3_2x4g-pinctrl.dtsi"
+#include "gen3/common_salvator_xs_h3ulcb.dts"
+
+/ {
+	model = "Salvator XS M3 2x4g";
+};
