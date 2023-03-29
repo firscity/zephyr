@@ -820,7 +820,12 @@ static void enable_mmu_el1(struct arm_mmu_ptables *ptables, unsigned int flags)
 	isb();
 
 	/* Invalidate all data caches before enable them */
+#ifdef CONFIG_DT_HAS_XEN_XEN_ENABLED
+	/* todo: find more optimal solution */
+	sys_cache_data_invd_range((void *)CONFIG_KERNEL_VM_BASE, CONFIG_KERNEL_VM_SIZE);
+#else
 	sys_cache_data_invd_all();
+#endif
 
 	/* Enable the MMU and data cache */
 	val = read_sctlr_el1();
