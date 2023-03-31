@@ -25,7 +25,7 @@
 #define PRIORITY 7
 
 /* delay between greetings (in ms) */
-#define SLEEPTIME 500
+#define SLEEPTIME 5000
 
 
 /*
@@ -52,13 +52,13 @@ void helloLoop(const char *my_name,
 		cpu = 0;
 #endif
 		/* say "hello" */
-		if (tname == NULL) {
-			printk("%s: Hello World from cpu %d on %s!\n",
-				my_name, cpu, CONFIG_BOARD);
-		} else {
-			printk("%s: Hello World from cpu %d on %s!\n",
-				tname, cpu, CONFIG_BOARD);
-		}
+//		if (tname == NULL) {
+//			printk("%s: Hello World from cpu %d on %s!\n",
+//				my_name, cpu, CONFIG_BOARD);
+//		} else {
+//			printk("%s: Hello World from cpu %d on %s!\n",
+//				tname, cpu, CONFIG_BOARD);
+//		}
 
 		/* wait a while, then let other thread have a turn */
 		k_busy_wait(100000);
