@@ -6,4 +6,9 @@ if SHIELD_XENVM_DOM0
 config HEAP_MEM_POOL_SIZE
 	default 2097152
 
+# We need at least 16M of virtual address space to map memory of Xen node
+# 32M should be enough for basic use-cases
+config KERNEL_VM_SIZE
+	default 0x2000000
+
 endif # SHIELD_XENVM_DOM0
