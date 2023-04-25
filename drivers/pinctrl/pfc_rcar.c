@@ -218,7 +218,7 @@ int pinctrl_configure_pins(const pinctrl_soc_pin_t *pins, uint8_t pin_cnt,
 	return ret;
 }
 
-__boot_func static int pfc_rcar_driver_init(void)
+__boot_func static int pfc_rcar_driver_init(const struct device *dev)
 {
 	DEVICE_MMIO_TOPLEVEL_MAP(pfc, K_MEM_CACHE_NONE);
 	return 0;
