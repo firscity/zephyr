@@ -5,9 +5,18 @@ if XEN
 
 menu "Xen drivers"
 
+config XEN_REGIONS
+	bool "Xen extended regions driver"
+	default y
+	select SYS_MEM_BLOCKS
+	help
+	  Xen extended regions driver. Allows using extended regions, provided by
+	  XEN hypervisor to Zephyr. This memory can be used to avoid allocations
+	  in Zephyr heap memory and using provided extended regions.
+
 config XEN_GRANT_TABLE
 	bool "Xen grant table driver"
-	depends on HEAP_MEM_POOL_SIZE > 0
+	depends on HEAP_MEM_POOL_SIZE > 0 || XEN_REGIONS
 	default y
 	help
 	  Xen grant table driver. Please note that driver uses dynamic memory
