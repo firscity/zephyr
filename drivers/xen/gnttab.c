@@ -20,6 +20,7 @@
 #include <zephyr/arch/arm64/hypercall.h>
 #include <zephyr/xen/generic.h>
 #include <zephyr/xen/gnttab.h>
+#include <zephyr/xen/regions.h>
 #include <zephyr/xen/public/grant_table.h>
 #include <zephyr/xen/public/memory.h>
 #include <zephyr/xen/public/xen.h>
@@ -193,6 +194,25 @@ static void gop_eagain_retry(int cmd, struct gnttab_map_grant_ref *gref)
 	}
 }
 
+#if defined(CONFIG_XEN_REGIONS)
+void *gnttab_get_page(void)
+{
+	void *page_addr;
+
+	page_addr = xen_region_get_pages(1);
+	if (!page_addr) {
+		LOG_WRN("Failed to allocate memory for gnttab page!\n");
+		return NULL;
+	}
+
+	return page_addr;
+}
+
+void gnttab_put_page(void *page_addr)
+{
+	xen_region_put_pages(page_addr, 1);
+}
+#else
 void *gnttab_get_page(void)
 {
 	int ret;
@@ -249,6 +269,7 @@ void gnttab_put_page(void *page_addr)
 
 	k_free(page_addr);
 }
+#endif /* CONFIG_XEN_REGIONS */
 
 int gnttab_map_refs(struct gnttab_map_grant_ref *map_ops, unsigned int count)
 {
