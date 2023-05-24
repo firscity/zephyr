@@ -16,13 +16,15 @@
 	 * This node may differs on different setups, please check
 	 * following line in Xen boot log to set it right:
 	 * (XEN) Grant table range: 0x00000040200000-0x00000040240000
+	 * Also, add extended region 1:
+	 * (XEN) Extended region 1: 0x40000000->0x47e00000
 	 *
 	 * Xen passes actual values for setup in domain device tree, but Zephyr
 	 * is not capable to parse and handle it in runtime.
 	 */
 	hypervisor: hypervisor@40200000 {
 		compatible = "xen,xen";
-		reg = <0x0 0x40200000 0x0 0x40000>;
+		reg = <0x0 0x40200000 0x0 0x40000 0x0 0x40400000 0x0 0x17C00000>;
 		interrupts = <GIC_PPI 0x0 IRQ_TYPE_EDGE IRQ_DEFAULT_PRIORITY>;
 		interrupt-parent = <&gic>;
 		status = "okay";
