@@ -79,6 +79,26 @@ int bind_event_channel(evtchn_port_t port, evtchn_cb_t cb, void *data);
 int unbind_event_channel(evtchn_port_t port);
 int get_missed_events(evtchn_port_t port);
 
+/**
+ * Disable event processing on specified port.
+ * @param port - event channel number
+ * @return 0 on success, negative errno on error
+ */
+int mask_event_channel(evtchn_port_t port);
+
+/**
+ * Enable event processing on specified port.
+ * @param port - event channel number
+ * @return 0 on success, negative errno on error
+ */
+int unmask_event_channel(evtchn_port_t port);
+
+/**
+ * Clear event channel from pending events
+ * @param port - event channel number
+ */
+void clear_event_channel(evtchn_port_t port);
+
 int xen_events_init(void);
 
 #endif /* __XEN_EVENTS_H__ */
