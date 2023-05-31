@@ -374,6 +374,11 @@ typedef struct shared_info shared_info_t;
 
 typedef uint8_t xen_domain_handle_t[16];
 
+__DEFINE_XEN_GUEST_HANDLE(uint8,  uint8_t);
+__DEFINE_XEN_GUEST_HANDLE(uint16, uint16_t);
+__DEFINE_XEN_GUEST_HANDLE(uint32, uint32_t);
+__DEFINE_XEN_GUEST_HANDLE(uint64, uint64_t);
+
 #ifndef int64_aligned_t
 #define int64_aligned_t int64_t
 #endif
