@@ -295,6 +295,9 @@ int gnttab_map_refs(struct gnttab_map_grant_ref *map_ops, unsigned int count)
 			break;
 
 		default:
+#ifdef CONFIG_XEN_REGIONS
+			xen_region_map(xen_to_virt(map_ops[i].host_addr), 1);
+#endif
 			break;
 		}
 	}
@@ -304,6 +307,11 @@ int gnttab_map_refs(struct gnttab_map_grant_ref *map_ops, unsigned int count)
 
 int gnttab_unmap_refs(struct gnttab_unmap_grant_ref *unmap_ops, unsigned int count)
 {
+#ifdef CONFIG_XEN_REGIONS
+	for (unsigned int i = 0; i < count; i++) {
+		xen_region_unmap(xen_to_virt(unmap_ops[i].host_addr), 1);
+	}
+#endif
 	return HYPERVISOR_grant_table_op(GNTTABOP_unmap_grant_ref, unmap_ops, count);
 }
 

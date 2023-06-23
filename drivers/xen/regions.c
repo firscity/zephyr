@@ -133,6 +133,36 @@ static int addr_is_in_buffer(uint8_t *ptr, sys_mem_blocks_t *block)
 		(ptr < block->buffer + (block->info.num_blocks << block->info.blk_sz_shift));
 }
 
+static bool addr_from_extended_region(void *ptr)
+{
+	for (unsigned int i = EXTENDED_REGIONS_IDX; i < DT_NUM_REGS(XEN_HYP_NODE); i++) {
+		if (addr_is_in_buffer(ptr, ext_blocks[i].block)) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+void xen_region_map(void *ptr, size_t nr_pages)
+{
+	if (addr_from_extended_region(ptr)) {
+		arch_mem_map(ptr, (uintptr_t)ptr, nr_pages * XEN_PAGE_SIZE,
+			     K_MEM_CACHE_WB | K_MEM_PERM_RW);
+	} else {
+		LOG_WRN("xen_regions: trying to map memory (%p) outside of any of regions", ptr);
+	}
+}
+
+void xen_region_unmap(void *ptr, size_t nr_pages)
+{
+	if (addr_from_extended_region(ptr)) {
+		arch_mem_unmap(ptr, nr_pages * XEN_PAGE_SIZE);
+	} else {
+		LOG_WRN("xen_regions: trying to unmap memory (%p) outside of any of regions", ptr);
+	}
+}
+
 void xen_region_put_pages(void *ptr, size_t nr_pages)
 {
 	int ret, i;
@@ -161,32 +191,3 @@ void xen_region_put_pages(void *ptr, size_t nr_pages)
 unlock:
 	k_mutex_unlock(&ext_regions_lock);
 }
-
-static int xen_regions_init(const struct device *d)
-{
-	int i;
-
-	ARG_UNUSED(d);
-
-	LOG_DBG("Initializing Xen Extended regions driver");
-
-	for (i = EXTENDED_REGIONS_IDX; i < DT_NUM_REGS(XEN_HYP_NODE); i++) {
-		/*
-		 * Using arch_mem_map to map the extended regions as 1:1.
-		 * The main idea of this functionality is to avoid using heap
-		 * and use 'unused memory' provided by XEN as extended_regions.
-		 * If using device_map call to map the space - then there is no
-		 * difference comparing to heap - we will get vaddr.
-		 * The idea is to allocate memory for the foreign mapping outside
-		 * of the region Z_VIRT_RAM_START..Z_VIRT_RAM_END.
-		 * phys_addr and size variables must be aligned to
-		 * CONFIG_MMU_PAGE_SIZE.
-		 */
-		arch_mem_map((void *)ext_blocks[i].phys_addr, ext_blocks[i].phys_addr,
-			     ext_blocks[i].size, K_MEM_CACHE_WB | K_MEM_PERM_RW);
-	}
-
-	return 0;
-}
-
-SYS_INIT(xen_regions_init, POST_KERNEL, CONFIG_KERNEL_INIT_PRIORITY_DEFAULT);

@@ -21,4 +21,18 @@ void *xen_region_get_pages(size_t nr_pages);
  */
 void xen_region_put_pages(void *ptr, size_t nr_pages);
 
+/**
+ * @brief Map extended region memory
+ * @param ptr - pointer to the pages, allocated by xen_region_get_pages call
+ * @param nr_pages - number of pages that should be mapped
+ */
+void xen_region_map(void *ptr, size_t nr_pages);
+
+/**
+ * @brief Unmap extended region memory
+ * @param ptr - pointer to the pages, allocated by xen_region_get_pages call
+ * @param nr_pages - number of pages that should be unmapped
+ */
+void xen_region_unmap(void *ptr, size_t nr_pages);
+
 #endif /* __XEN_REGIONS_H__ */
