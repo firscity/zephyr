@@ -9,3 +9,4 @@ zephyr_compile_options(-D__XEN_INTERFACE_VERSION__=0x00040e00)
 
 zephyr_library_sources(hypercall.S)
 zephyr_library_sources(enlighten.c)
+zephyr_library_sources_ifdef(CONFIG_SAVE_XEN_FDT fdt.c)

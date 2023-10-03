@@ -25,3 +25,7 @@ config XEN_DOM0LESS
 	help
 	  Configures Zephyr as DomU, that can be started on Dom0less
 	  setup.
+
+config SAVE_XEN_FDT
+	bool "Save Xen device tree blob on early boot"
+	depends on XEN

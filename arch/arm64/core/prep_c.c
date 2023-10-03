@@ -21,6 +21,10 @@ extern void z_arm64_mm_init(bool is_primary_core);
 
 __weak void z_arm64_mm_init(bool is_primary_core) { }
 
+#ifdef CONFIG_SAVE_XEN_FDT
+extern void xen_copy_fdt(void);
+#endif
+
 /*
  * These simple memset/memcpy alternatives are necessary as the optimized
  * ones depend on the MMU to be active (see commit c5b898743a20).
@@ -58,6 +62,10 @@ void z_arm64_prep_c(void)
 
 	z_bss_zero();
 	z_data_copy();
+#ifdef CONFIG_SAVE_XEN_FDT
+	xen_copy_fdt();
+#endif /* CONFIG_SAVE_XEN_FDT */
+
 #ifdef CONFIG_ARM64_SAFE_EXCEPTION_STACK
 	/* After bss clean, _kernel.cpus is in bss section */
 	z_arm64_safe_exception_stack_init();

@@ -118,6 +118,18 @@ resetwait:
 	/* Mask all exceptions */
 	msr	DAIFSet, #0xf
 
+#ifdef CONFIG_SAVE_XEN_FDT
+	mov x1, x0
+	ldr x0, =xen_fdt_addr
+	str x1, [x0]
+
+	/* Skip 4 bytes from blob start to get fdt size */
+	add x1, x1, #0x4
+	ldr x0, =xen_fdt_size
+	ldr w2, [x1]
+	str w2, [x0]
+#endif /* CONFIG_SAVE_XEN_FDT */
+
 #if CONFIG_MP_MAX_NUM_CPUS > 1
 
 	ldr	x0, =arm64_cpu_boot_params
