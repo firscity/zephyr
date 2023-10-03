@@ -1,0 +1,4 @@
+sample:
+  description: A simple application that saves Xen domain FDT
+    passed to Zephyr
+  name: Save Xen FDT example
