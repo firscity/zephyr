@@ -3,6 +3,9 @@
 
 if SOC_BCM2712
 
+config SOC
+	default "bcm2712"
+
 config NUM_IRQS
 	default 280
 

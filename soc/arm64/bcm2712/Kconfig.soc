@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 config SOC_BCM2712
-	bool
-
-config SOC
-	default "bcm2712" if SOC_BCM2712
+	bool "bcm2712"
+	select ARM64
+	select CPU_CORTEX_A76
+	select ARM_ARCH_TIMER if SYS_CLOCK_EXISTS
