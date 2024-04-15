@@ -138,3 +138,35 @@ When you power on the Raspberry Pi 5, you will see the following output in the s
 
 .. _Raspberry Pi Debug Probe:
    https://www.raspberrypi.com/products/debug-probe/
+
+XEN Dom0
+========
+
+The Raspberry Pi 5 platform can be used to run as Xen Zephyr Dom0. For such purposes the `xen_dom0`
+snippet can be used.
+
+Run below command as an example of RPI 5 Zephyr build as Dom0:
+
+.. code-block:: bash
+
+   west build -b rpi_5 -p always -S xen_dom0 samples/hello_world
+
+It is expected to be used with special application performing Xen Domain-0/Dom0 functions.
+
+.. note::
+
+   The "hypervisor@x" and "memory@x" DT nodes may need to be updated depending on the Xen boot,
+   because normaly Xan will update DT for the target Kernel, but this is not possible in case
+   of Zephyr. See comments in `rpi_5_xen_dom0.dts`.
+
+XEN DomD with HW passthrough
+============================
+
+The Raspberry Pi 5 platform can be used to run as Xen Zephyr DomD with RPI 5 HW support.
+For such purposes the `rpi_5_xen_domd` snippet can be used.
+
+Run the command below as an example of RPI 5 Zephyr build as DomD:
+
+.. code-block:: bash
+
+   west build -b xenvm -S rpi_5_xen_domd samples/basic/blinky
