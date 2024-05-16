@@ -80,16 +80,17 @@ class DeviceAdapter(abc.ABC):
         self._device_run.set()
         self._start_reader_thread()
 
-        if self.device_config.flash_before:
-            # For hardware devices with shared USB or software USB, connect after flashing.
-            # Retry for up to 10 seconds for USB-CDC based devices to enumerate.
-            self._flash_and_run()
-            self.connect(retry_s = 10)
-        else:
-            # On hardware, flash after connecting to COM port, otherwise some messages
-            # from target can be lost.
-            self.connect()
-            self._flash_and_run()
+	if not self.device_config.skip_flash and self.device_config.type == 'hardware':
+        	if self.device_config.flash_before:
+            		# For hardware devices with shared USB or software USB, connect after flashing.
+            		# Retry for up to 10 seconds for USB-CDC based devices to enumerate.
+            		self._flash_and_run()
+            		self.connect(retry_s = 10)
+        	else:
+            		# On hardware, flash after connecting to COM port, otherwise some messages
+            		# from target can be lost.
+            		self.connect()
+            		self._flash_and_run()
 
     def close(self) -> None:
         """Disconnect, close device and close reader thread."""

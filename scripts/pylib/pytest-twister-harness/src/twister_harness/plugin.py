@@ -130,6 +130,12 @@ def pytest_addoption(parser: pytest.Parser):
         '--extra-test-args',
         help='Additional args passed to the test binary'
     )
+    twister_harness_group.addoption(
+        '--skip-flash',
+        default=False,
+        help='Skip flashing.',
+        action='store_true',
+    )
 
 
 def pytest_configure(config: pytest.Config):
